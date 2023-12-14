@@ -1,5 +1,5 @@
-#ifndef _OPTIMISER_HPP_
-#define _OPTIMISER_HPP_
+#ifndef _LNS_HPP_
+#define _LNS_HPP_
 
 #include <math.h>
 #include <algorithm>
@@ -12,219 +12,6 @@ using namespace std;
 #include "Solution.hpp"
 #include "Solver.hpp"
 #endif
-
-class AGES {
-   public:
-    static pair<vector<int>, vector<int>> AGES_INSERTED_PD(Instance& instance,
-                                                           Solution sol) {
-        vector<int> mark(instance.nOrder + 1, 0);
-        for (pair<int, int> x : sol.temporatorPdPairs)
-            mark[x.first] = 1;
-        vector<int> ret_first;
-        for (int i = 1; i <= instance.nOrder; i++)
-            if (mark[i] == 0)
-                ret_first.push_back(i);
-        vector<int> ret_second(instance.nOrder + 1, 0);
-        for (int truckId = 1; truckId <= instance.nTruck; truckId++)
-            for (int x : sol.tours[truckId])
-                if (x <= instance.nOrder)
-                    ret_second[x] = truckId;
-        return make_pair(ret_first, ret_second);
-    }
-
-    static pair<int, pair<int, int>> AGES_EJECT(Solution& sol,
-                                                Instance& instance,
-                                                int k,
-                                                int truckID,
-                                                vector<int>& p,
-                                                pair<int, int> pd_pair) {
-        vector<int>& tour = sol.tours[truckID];
-        vector<int> backupTour = tour;
-        int bestScore = __INT_MAX__;
-        int bestU = 0;
-        int bestV = 0;
-        if (k == 1) {
-            for (int i = 0; i < tour.size(); i++) {
-                if (instance.hubList[tour[i]].type != instance.PICK)
-                    continue;
-                int j = i + 1;
-                for (; j < tour.size(); j++)
-                    if (tour[j] - tour[i] == instance.nOrder)
-                        break;
-                tour.erase(tour.begin() + j);
-                tour.erase(tour.begin() + i);
-                pair<int, pair<int, int>> tmp =
-                    Solver::TryInsertN2(sol, truckID, pd_pair, instance);
-                // reverse tour before continue :)))
-                tour = backupTour;
-                if (tmp.first == __INT_MAX__)
-                    continue;
-                if (p[tour[i]] < bestScore) {
-                    bestScore = p[tour[i]];
-                    bestU = tour[i];
-                }
-            }
-        } else if (k == 2) {
-            vector<int> pd_list;
-            for (int i = 0; i < tour.size(); i++)
-                if (instance.hubList[tour[i]].type == instance.PICK)
-                    pd_list.push_back(tour[i]);
-            for (int i = 0; i < pd_list.size(); i++)
-                for (int j = i + 1; j < pd_list.size(); j++) {
-                    tour.clear();
-                    int ej1 = pd_list[i];
-                    int ej2 = pd_list[i] + instance.nOrder;
-                    int ej3 = pd_list[j];
-                    int ej4 = pd_list[j] + instance.nOrder;
-                    for (int u : backupTour)
-                        if (u != ej1 && u != ej2 && u != ej3 && u != ej4)
-                            tour.push_back(u);
-                    pair<int, pair<int, int>> tmp =
-                        Solver::TryInsertN2(sol, truckID, pd_pair, instance);
-                    if (tmp.first == __INT_MAX__)
-                        continue;
-                    if (p[ej1] + p[ej3] < bestScore) {
-                        bestScore = p[ej1] + p[ej3];
-                        if (bestScore < 0) {
-                            int hihihi = 1;
-                        }
-                        bestU = ej1;
-                        bestV = ej3;
-                    }
-                }
-        }
-        tour = backupTour;
-        return {bestScore, {bestU, bestV}};
-    }
-
-    static Solution AGES_RUN(Solution sol,
-                             Instance& instance,
-                             int perturbIter = 1000,
-                             double pEx = 0.5) {
-        // select and remove a route randomly from sol
-        int truckRemoved = ceil(Helper::random() * instance.nTruck);
-        int bestTemporatorSize = sol.temporatorPdPairs.size();
-        for (int u : sol.tours[truckRemoved]) {
-            if (u <= instance.nOrder)
-                sol.temporatorPdPairs.push_back({u, u + instance.nOrder});
-        }
-        sol.tours[truckRemoved].clear();
-        // initialize EP with the requests in the removed route
-        vector<pair<int, int>>& EP = sol.temporatorPdPairs;
-        // initialize all penalty counters p[h] = 1 (h = 1...instance.nOrder)
-        vector<int> p(instance.nOrder + 1, 1);
-        // while (EP != NULL or termination condition is not meet do)
-        Solution bestSol = sol;
-        int iter = 1;
-        int bestEPSize = EP.size();
-        while (EP.size() && iter <= 1000) {
-            // select and remove request h_in (pd_pair) from EP with LIFO
-            // strategy
-            int oldSize = EP.size();
-            pair<int, int> pd_pair = EP.back();
-            vector<int> N_fe_insert;
-            for (int truckId = 1; truckId <= instance.nTruck; truckId++) {
-                if (truckId != truckRemoved) {
-                    pair<int, pair<int, int>> tmp =
-                        Solver::TryInsertN2(sol, truckId, pd_pair, instance);
-                    if (tmp.first != __INT_MAX__)
-                        N_fe_insert.push_back(truckId);
-                }
-            }
-            // if N_fe_insert(h_in,sigma) != null
-            if (N_fe_insert.size()) {
-                int selectedTruck =
-                    N_fe_insert[Helper::random() * N_fe_insert.size()];
-                pair<int, pair<int, int>> tmp =
-                    Solver::TryInsertN2(sol, selectedTruck, pd_pair, instance);
-
-                // Select sigma' \in N_fe_insert randomly; update sigma = sigma'
-                EP.pop_back();
-                vector<int>& tour = sol.tours[selectedTruck];
-                tour.insert(tour.begin() + tmp.second.first, pd_pair.first);
-                tour.insert(tour.begin() + tmp.second.second, pd_pair.second);
-            } else {
-                // if h_in cannot be inserted in sigma
-                // set p[h_in] = p[h_in] + 1
-                p[pd_pair.first]++;
-                // select sigma' in N_fe_EJ(h_in, sigma) such that Psum is
-                // minimized
-                pair<int, pair<int, int>> saveCost = {__INT_MAX__, {0, 0}};
-                int bestTruck, bestK;
-
-                for (int k = 1; k <= 2; k++) {
-                    for (int truckId = 1; truckId <= instance.nTruck; truckId++)
-                        if (truckId != truckRemoved) {
-                            if ((k == 2 && Helper::random() < 1) || (k == 1)) {
-                                pair<int, pair<int, int>> tmp =
-                                    AGES::AGES_EJECT(sol, instance, k, truckId,
-                                                     p, pd_pair);
-                                if (tmp < saveCost) {
-                                    saveCost = tmp;
-                                    bestK = k;
-                                    bestTruck = truckId;
-                                }
-                            }
-                        }
-                }
-                if (saveCost.first < __INT_MAX__) {
-                    EP.pop_back();
-                    vector<int>& tour = sol.tours[bestTruck];
-                    int bestU = saveCost.second.first;
-                    int bestV = saveCost.second.second;
-                    // update sigma = sigma'
-                    // add the ejected requestts to EP
-                    for (int i = tour.size() - 1; i >= 0; i--)
-                        if (tour[i] == bestU ||
-                            tour[i] == bestU + instance.nOrder)
-                            tour.erase(tour.begin() + i);
-                    EP.push_back({bestU, bestU + instance.nOrder});
-                    if (bestK == 2) {
-                        for (int i = tour.size() - 1; i >= 0; i--)
-                            if (tour[i] == bestV ||
-                                tour[i] == bestV + instance.nOrder)
-                                tour.erase(tour.begin() + i);
-                        EP.push_back({bestV, bestV + instance.nOrder});
-                    }
-                    pair<int, pair<int, int>> tmp =
-                        Solver::TryInsertN2(sol, bestTruck, pd_pair, instance);
-                    tour.insert(tour.begin() + tmp.second.first, pd_pair.first);
-                    tour.insert(tour.begin() + tmp.second.second,
-                                pd_pair.second);
-                }
-                // sigma = PERTURB(sigma)
-                pair<vector<int>, vector<int>> infomation =
-                    AGES::AGES_INSERTED_PD(instance, sol);
-                vector<int>& insertedList = infomation.first;
-                vector<int>& insertedPos = infomation.second;
-                for (int i = 1; i <= perturbIter; i++) {
-                    double Rand = Helper::random();
-                    if (Rand < pEx) {
-                        int r_id1 =
-                            Helper::random_int(0, insertedList.size() - 1);
-                        int r_id2 = Helper::random_int(0, r_id1);
-                        int id1 = insertedList[r_id1];
-                        int id2 = insertedList[r_id2];
-                        if (id1 == id2)
-                            continue;
-                        bool flag = Perturb::pd_swap(sol, instance, id1, id2,
-                                                     insertedPos, true);
-                        if (flag)
-                            swap(insertedPos[id1], insertedPos[id2]);
-                    }
-                }
-            }
-            if (EP.size() < bestEPSize) {
-                bestSol = sol;
-                bestEPSize = EP.size();
-            }
-            ++iter;
-        }
-        Solver::TruckRouteConstructionHeuristics(instance, bestSol,
-                                                 truckRemoved);
-        return bestSol;
-    }
-};
 
 class LNS {
    public:
@@ -340,13 +127,13 @@ class LNS {
             vector<int> cost;
             for (int u : L) {
                 int truckId = tourId[u];
-                cost.push_back(sol.calculatePen(truckId, instance));
+                cost.push_back(sol.costRoute(truckId, instance, sol.tours[truckId]));
                 vector<int> backup = sol.tours[truckId];
                 vector<int>& tour = sol.tours[truckId];
                 for (int i = tour.size() - 1; i >= 0; i--)
                     if (tour[i] == u || tour[i] == u + instance.nOrder)
                         tour.erase(tour.begin() + i);
-                cost.back() -= sol.calculatePen(truckId, instance);
+                cost.back() -= sol.costRoute(truckId, instance, sol.tours[truckId]);
                 tour = backup;
             }
             int minId = 0;
@@ -400,7 +187,7 @@ class LNS {
         return D;
     }
 
-    static Solution LNS_RUN(Solution sol,
+    static Solution run(Solution sol,
                             Instance& instance,
                             int maxSeg = 15,
                             int maxIter = 15,
@@ -454,7 +241,7 @@ class LNS {
                     int bestTruck = 0;
                     for (int truckId = 1; truckId <= instance.nTruck;
                          truckId++) {
-                        pair<int, pair<int, int>> tmp = Solver::TryInsertN2(
+                        pair<int, pair<int, int>> tmp = Solver::SlowInsert(
                             s_, truckId, {D[i], D[i] + instance.nOrder},
                             instance);
                         if (tmp < best) {
@@ -464,9 +251,10 @@ class LNS {
                     }
                     if (best.first != __INT_MAX__) {
                         vector<int>& tour = s_.tours[bestTruck];
-                        tour.insert(tour.begin() + best.second.first, D[i]);
-                        tour.insert(tour.begin() + best.second.second,
-                                    D[i] + instance.nOrder);
+                        Solver::insertToTour(tour, {D[i], D[i]+instance.nOrder}, best.second);
+                        // tour.insert(tour.begin() + best.second.first, D[i]);
+                        // tour.insert(tour.begin() + best.second.second,
+                        //             D[i] + instance.nOrder);
                     } else
                         newUnused.push_back({D[i], D[i] + instance.nOrder});
                 }
@@ -493,7 +281,7 @@ class LNS {
                     for (int truckId = 1; truckId <= instance.nTruck;
                          truckId++) {
                         pair<int, pair<int, int>> tmp =
-                            Solver::TryInsertN2(s_, truckId, pd_pair, instance);
+                            Solver::SlowInsert(s_, truckId, pd_pair, instance);
                         if (tmp < best) {
                             best = tmp;
                             bestTruck = truckId;
@@ -501,10 +289,11 @@ class LNS {
                     }
                     if (best.first != __INT_MAX__) {
                         vector<int>& tour = s_.tours[bestTruck];
-                        tour.insert(tour.begin() + best.second.first,
-                                    pd_pair.first);
-                        tour.insert(tour.begin() + best.second.second,
-                                    pd_pair.second);
+                        Solver::insertToTour(tour, pd_pair, best.second);
+                        // tour.insert(tour.begin() + best.second.first,
+                        //             pd_pair.first);
+                        // tour.insert(tour.begin() + best.second.second,
+                        //             pd_pair.second);
                     } else
                         newUnused.push_back(pd_pair);
                 }

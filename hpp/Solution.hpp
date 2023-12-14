@@ -27,38 +27,27 @@ class Solution {
             temporatorPdPairs.push_back({i, i + instance.nOrder});
     }
 
-    void debug(Instance instance) {
-        for (int i = 1; i <= instance.nTruck; i++) {
-            cout << start[i] << "\n";
-            for (int x : tours[i])
-                cout << x << " ";
-            cout << endl;
-        }
-    }
-
-    // void removeFromTour(int truckId, pair<int, int> pd_pair) {
-    //     vector<int>& tour = tours[truckId];
-    //     for (int i = tour.size() - 1; i >= 0; i--)
-    //         if (tour[i] == pd_pair.first || tour[i] == pd_pair.second)
-    //             tour.erase(tour.begin() + i);
-    //     tourIdOfPdPair[pd_pair.first] = 0;
+    // void debug(Instance instance) {
+    //     for (int i = 1; i <= instance.nTruck; i++) {
+    //         cout << start[i] << "\n";
+    //         for (int x : tours[i])
+    //             cout << x << " ";
+    //         cout << endl;
+    //     }
     // }
 
-    // void insertToTour(int truckId, pair<int, int> pd_pair, pair<int, int>
-    // pos) {
-    //     vector<int>& tour = tours[truckId];
-    //     tour.insert(tour.begin() + pos.first, pd_pair.first);
-    //     tour.insert(tour.begin() + pos.second, pd_pair.second);
-    //     tourIdOfPdPair[pd_pair.first] = truckId;
-    // }
-
-    int calculatePen(int truckId, Instance& instance) {
+    /*
+    @brief return cost of truck[truckId] as the earliest time truck can leave
+    last node
+    @return this time, or __INT_MAX__ if invalid route
+    */
+    int costRoute(int truckId, Instance& instance, vector<int>& tour) {
         Hub& startHub = instance.hubList[start[truckId]];
         Hub preHub = startHub;
         int curTime = preHub.timeWindow.first;
         double maxWeigh = instance.truckList[truckId].maxWeight;
         double maxVolume = instance.truckList[truckId].maxVolume;
-        for (int u : tours[truckId]) {
+        for (int u : tour) {
             Hub& hub = instance.hubList[u];
             curTime = curTime + instance.moveTime(preHub, hub, truckId);
             if (curTime > hub.timeWindow.second)
@@ -76,7 +65,11 @@ class Solution {
         return curTime - instance.moveTime(preHub, startHub, truckId);
     }
 
-    bool isValidTruck(int truckId, Instance& instance) {
+    /*
+    @brief check if route of truck[truckId] is valid
+    @return true if truck is valid, otherwise, false
+    */
+    bool isValidTruck(int truckId, Instance& instance, vector<int>& tour) {
         Hub& startHub = instance.hubList[start[truckId]];
         Hub preHub = startHub;
         int curTime = preHub.timeWindow.first;
@@ -85,7 +78,7 @@ class Solution {
 
         vector<int> visited(instance.nOrder * 2 + 1, 0);
 
-        for (int u : tours[truckId]) {
+        for (int u : tour) {
             if (visited[u])
                 return false;
             if (u > instance.nOrder && visited[u - instance.nOrder] == 0)
@@ -109,13 +102,23 @@ class Solution {
         return true;
     }
 
+    /*
+    @brief check if solution is valid
+    @return true if solution valid, otherwise, false
+    */
     bool isValid(Instance& instance) {
         for (int truckId = 1; truckId <= instance.nTruck; truckId++) {
-            if (isValidTruck(truckId, instance) == false)
+            if (isValidTruck(truckId, instance, tours[truckId]) == false)
                 return false;
         }
         return true;
     }
+
+    /*
+    @brief calculate number of hub the truck visit in real tour (not in decoded
+    graph). Just used in SOICT
+    @return an integer denote number of hub the truck visit in real tour.
+    */
     int numHub(int truckId, Instance instance) {
         vector<int> hubs;
         hubs.push_back(instance.hubList[start[truckId]].hubID);
@@ -128,8 +131,11 @@ class Solution {
                 ++ret;
         return ret;
     }
-    // con bug
-    void printAnswer(Instance& instance) {
+
+    /*
+    @brief print answer as SOICT required
+    */
+    void printAnswerSOICT(Instance& instance) {
         for (int truckId = 1; truckId <= instance.nTruck; truckId++) {
             Hub& startHub = instance.hubList[start[truckId]];
             Hub preHub = startHub;
@@ -201,6 +207,44 @@ class Solution {
         }
     }
 
+    void printAnswer(Instance& instance) {
+        cout << "OBJECTIVE:\t" << (int)objective(instance) << "\n";
+        cout << "SELF VALIDATE:\t" << (bool)isValid(instance) << "\n";
+        for (int truckId = 1; truckId <= instance.nTruck; truckId++) {
+            int startHub = instance.nOrder * 2 + truckId;
+            Hub preHub = instance.hubList[start[truckId]];
+            cout << "------- Truck: " << truckId << ":\n";
+            int curTime = preHub.timeWindow.first;
+            cout << preHub.timeWindow.first << "\t" << preHub.timeWindow.second
+                 << "\n";
+            // first:arriveTime, second:id of hub (decoded)
+            for (int u : tours[truckId]) {
+                if (u > instance.nOrder)
+                    cout << "D\t" << u - instance.nOrder;
+                else
+                    cout << "P\t" << u;
+                Hub& hub = instance.hubList[u];
+                curTime = curTime + instance.moveTime(preHub, hub, truckId);
+                curTime = max(curTime, hub.timeWindow.first);
+                cout << "\t" << curTime << "\t" << hub.timeWindow.first << "\t"
+                     << hub.timeWindow.second;
+                if (curTime <= hub.timeWindow.second)
+                    cout << "\tVALID TIME\n";
+                else
+                    cout << "\tINVALID TIME\n";
+                curTime += hub.serveTime;
+                preHub = hub;
+            }
+            curTime += instance.moveTime(
+                preHub, instance.hubList[start[truckId]], truckId);
+            cout << curTime << "\n";
+        }
+    }
+
+    /*
+    @brief calculate objective value of solution
+    @return double
+    */
     double objective(Instance& instance) {
         int O = 0, UK = 0;
         double TT = 0;

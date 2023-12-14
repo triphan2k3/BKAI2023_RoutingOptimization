@@ -4,9 +4,10 @@
 #include <iostream>
 
 #ifndef _SUBMIT_
+#include "./hpp/AGES.hpp"
 #include "./hpp/Helper.hpp"
 #include "./hpp/Instance.hpp"
-#include "./hpp/Optimiser.hpp"
+#include "./hpp/LNS.hpp"
 #include "./hpp/Solution.hpp"
 #include "./hpp/Solver.hpp"
 #endif
@@ -32,11 +33,11 @@ int main(int argc, char* argv[]) {
 
     // Solution onlyInit = Solver::BetterConstructionHeuristics(instance);
 
-    Solution sol = Solver::RouteConstructionHeuristics(instance);
+    Solution sol = Solver::ConstructSolution(instance);
     // Solution sol = onlyInit;
-    while (getRunTime() < 250) {
-        sol = AGES::AGES_RUN(sol, instance);
-        sol = LNS::LNS_RUN(sol, instance);
+    while (getRunTime() < 20) {
+        sol = AGES::run(sol, instance);
+        sol = LNS::run(sol, instance);
     }
     sol.printAnswer(instance);
     if (argc == 3) {

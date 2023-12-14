@@ -18,18 +18,19 @@ def build(file):
     os.system('g++ -O2 -std=c++11 {}.cpp -o {}'.format(file,file))
 
 
+NTESTCASE=15
 def run_all(file):
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        for i in range(1, 6):
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        for i in range(1, NTESTCASE + 1):
             fileName = str(i) + '.txt'
-            if i != 10:
+            if i < 10:
                 fileName = '0' + fileName
             cmd = "./{} ./INPUT/{} ./OUTPUT/{}".format(file,fileName, fileName)
             executor.submit(call_script, cmd)
 
     f = open("temp.txt", "r")
     total = 0
-    for i in range(1, 6):
+    for i in range(1, NTESTCASE + 1):
         ans = f.readline()
         testcase, ans = ans.split(sep=' ')
         print("{}: {}".format(testcase, ans),end="")

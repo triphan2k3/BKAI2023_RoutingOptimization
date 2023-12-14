@@ -29,14 +29,15 @@ class Perturb {
         for (int i = 0; i <= 1; i++)
             swap(tour1[pos1[i]], tour2[pos2[i]]);
 
-        bool ret = sol.isValidTruck(tourOfPd[pd_id1], instance) &&
-                   sol.isValidTruck(tourOfPd[pd_id2], instance);
+        bool ret = sol.isValidTruck(tourOfPd[pd_id1], instance, tour1) &&
+                   sol.isValidTruck(tourOfPd[pd_id2], instance, tour2);
 
         if (doSwap == false || ret == false)
             for (int i = 0; i <= 1; i++)
                 swap(tour1[pos1[i]], tour2[pos2[i]]);
         return ret;
     }
+
     static bool pd_exchange(Solution& sol,
                             Instance& instance,
                             int pd_id,
@@ -52,9 +53,9 @@ class Perturb {
             if (curTour[i] == pd_pair.first || curTour[i] == pd_pair.second)
                 curTour.erase(curTour.begin() + i);
         }
-        // TryInsert to newTour
+        // FastInsert to newTour
         pair<int, pair<int, int>> tmp =
-            Solver::TryInsertN2(sol, newTour_id, pd_pair, instance);
+            Solver::SlowInsert(sol, newTour_id, pd_pair, instance);
         if (tmp.first == __INT_MAX__ || doExc == false) {
             curTour = backup_cur;
             return (tmp.first != __INT_MAX__);
