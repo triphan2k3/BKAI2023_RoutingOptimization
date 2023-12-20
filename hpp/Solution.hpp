@@ -38,7 +38,7 @@ class Solution {
 
     /*
     @brief return cost of truck[truckId] as the earliest time truck can leave
-    last node
+    last node, note that this function cannot handle duplicate pd-pairs
     @return this time, or __INT_MAX__ if invalid route
     */
     int costRoute(int truckId, Instance& instance, vector<int>& tour) {
@@ -207,16 +207,73 @@ class Solution {
         }
     }
 
-    void printAnswer(Instance& instance) {
+    /*
+    @brief calculate AT for all node visited of solution
+    @return vector<int> is AT of P-node or D-node, 1 index
+    */
+    vector<int> CalculateArriveTime(Instance& instance) {
+        vector<int> visitTime(instance.nOrder * 2 + 2, __INT_MAX__);
+        for (int truckId = 1; truckId <= instance.nTruck; truckId++) {
+            Hub& startHub = instance.hubList[start[truckId]];
+            Hub preHub = startHub;
+            int curTime = preHub.timeWindow.first;
+            for (int u : tours[truckId]) {
+                Hub& hub = instance.hubList[u];
+                curTime = curTime + instance.moveTime(preHub, hub, truckId);
+                visitTime[u] = max(curTime, hub.timeWindow.first);
+                curTime = visitTime[u] + hub.serveTime;
+                preHub = hub;
+            }
+        }
+        return visitTime;
+    }
+
+    void printHeader(Instance& instance) {
+        int processed = instance.nOrder - temporatorPdPairs.size();
+        cout << "---------------------------------------------------------\n";
         cout << "OBJECTIVE:\t" << (int)objective(instance) << "\n";
         cout << "SELF VALIDATE:\t" << (bool)isValid(instance) << "\n";
+        cout << "TOTAL REQUEST PROCESS:\t" << processed << "/"
+             << instance.nOrder << "\n";
+        cout << "NUM TRUCK:\t" << instance.nTruck << "\n";
+        cout << "AVG PROCESS:\t" << setprecision(3) << fixed
+             << 1.0 * processed / instance.nTruck << "\n";
+        cout << "---------------------------------------------------------\n\n";
+    }
+
+    pair<float, pair<int, int>> betterObj(Instance instance) {
+        int processed = instance.nOrder - temporatorPdPairs.size();
+        float avg = 1.0 * processed / instance.nTruck;
+        int TT = 0;
         for (int truckId = 1; truckId <= instance.nTruck; truckId++) {
-            int startHub = instance.nOrder * 2 + truckId;
-            Hub preHub = instance.hubList[start[truckId]];
-            cout << "------- Truck: " << truckId << ":\n";
+            // call TT
+            Hub& startHub = instance.hubList[start[truckId]];
+            Hub preHub = startHub;
             int curTime = preHub.timeWindow.first;
-            cout << preHub.timeWindow.first << "\t" << preHub.timeWindow.second
-                 << "\n";
+            for (int u : tours[truckId]) {
+                Hub& hub = instance.hubList[u];
+                curTime = curTime + instance.moveTime(preHub, hub, truckId);
+                curTime = max(curTime, hub.timeWindow.first) + hub.serveTime;
+                preHub = hub;
+            }
+            curTime += instance.moveTime(preHub, startHub, truckId);
+            TT += curTime - startHub.timeWindow.first;
+        }
+        return {avg, {processed, TT}};
+    }
+
+    /*
+    @brief print answer to stdout
+    */
+    void printAnswer(Instance& instance) {
+        printHeader(instance);
+        vector<int> AT = CalculateArriveTime(instance);
+        for (int truckId = 1; truckId <= instance.nTruck; truckId++) {
+            Hub& startHub = instance.hubList[start[truckId]];
+            cout << "-------Truck: " << truckId << ":\t"
+                 << tours[truckId].size() / 2 << "-------\n";
+            cout << startHub.timeWindow.first << "\t"
+                 << startHub.timeWindow.second << "\n";
             // first:arriveTime, second:id of hub (decoded)
             for (int u : tours[truckId]) {
                 if (u > instance.nOrder)
@@ -224,20 +281,21 @@ class Solution {
                 else
                     cout << "P\t" << u;
                 Hub& hub = instance.hubList[u];
-                curTime = curTime + instance.moveTime(preHub, hub, truckId);
-                curTime = max(curTime, hub.timeWindow.first);
-                cout << "\t" << curTime << "\t" << hub.timeWindow.first << "\t"
-                     << hub.timeWindow.second;
-                if (curTime <= hub.timeWindow.second)
+                cout << "\t" << AT[u] << "\t";
+                cout << hub.timeWindow.first << "\t" << hub.timeWindow.second;
+                if (AT[u] <= hub.timeWindow.second)
                     cout << "\tVALID TIME\n";
                 else
                     cout << "\tINVALID TIME\n";
-                curTime += hub.serveTime;
-                preHub = hub;
             }
-            curTime += instance.moveTime(
-                preHub, instance.hubList[start[truckId]], truckId);
-            cout << curTime << "\n";
+            Hub& lastHub = tours[truckId].size()
+                               ? instance.hubList[tours[truckId].back()]
+                               : startHub;
+            int lastMove = instance.moveTime(lastHub, startHub, truckId);
+            if (tours[truckId].size())
+                cout << AT[tours[truckId].back()] + lastMove << "\n";
+            else
+                cout << startHub.timeWindow.first << "\n";
         }
     }
 

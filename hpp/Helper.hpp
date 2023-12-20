@@ -3,6 +3,7 @@
 #define _HELPER_HPP_
 
 #include <chrono>
+#include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -14,6 +15,17 @@ using namespace std::chrono;
 
 class Helper {
    public:
+    static const std::string currentDateTime() {
+        time_t now = time(0);
+        struct tm tstruct;
+        char buf[80];
+        tstruct = *localtime(&now);
+        // Visit http://en.cppreference.com/w/cpp/chrono/c/strftime
+        // for more information about date/time format
+        strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
+
+        return buf;
+    }
 
     static int TimeToInt(string time) {
         int hh = (time[0] - '0') * 10 + (time[1] - '0');

@@ -127,13 +127,15 @@ class LNS {
             vector<int> cost;
             for (int u : L) {
                 int truckId = tourId[u];
-                cost.push_back(sol.costRoute(truckId, instance, sol.tours[truckId]));
+                cost.push_back(
+                    sol.costRoute(truckId, instance, sol.tours[truckId]));
                 vector<int> backup = sol.tours[truckId];
                 vector<int>& tour = sol.tours[truckId];
                 for (int i = tour.size() - 1; i >= 0; i--)
                     if (tour[i] == u || tour[i] == u + instance.nOrder)
                         tour.erase(tour.begin() + i);
-                cost.back() -= sol.costRoute(truckId, instance, sol.tours[truckId]);
+                cost.back() -=
+                    sol.costRoute(truckId, instance, sol.tours[truckId]);
                 tour = backup;
             }
             int minId = 0;
@@ -187,21 +189,24 @@ class LNS {
         return D;
     }
 
+    /*
+    @brief run LNS for a soluion sol
+    */
     static Solution run(Solution sol,
-                            Instance& instance,
-                            int maxSeg = 15,
-                            int maxIter = 15,
-                            int o1 = 33,
-                            int o2 = 9,
-                            int o3 = 13,
-                            double r = 0.1,
-                            double p = 6,
-                            double pWorst = 3,
-                            double w_ = 0.05,
-                            double c_ = 0.99975,
-                            int q = 10,
-                            int maxTry = 10,
-                            int scaler = 1000000) {
+                        Instance& instance,
+                        int maxSeg = 15,
+                        int maxIter = 15,
+                        int o1 = 33,
+                        int o2 = 9,
+                        int o3 = 13,
+                        double r = 0.1,
+                        double p = 6,
+                        double pWorst = 3,
+                        double w_ = 0.05,
+                        double c_ = 0.99975,
+                        int q = 5,
+                        int maxTry = 10,
+                        int scaler = 1000000) {
         /*
             e^-y = 0.5
             y = 0.69314718
@@ -222,6 +227,7 @@ class LNS {
                 vector<pair<int, int>>& unUsed = s_.temporatorPdPairs;
                 // remove q request
                 int type = Helper::selectWithWeight(w);
+                numberAttemp[type]++;
                 vector<int> D;
                 if (type == 0)
                     D = SHAW_REMOVAL(s_, q, p, instance);
@@ -251,10 +257,8 @@ class LNS {
                     }
                     if (best.first != __INT_MAX__) {
                         vector<int>& tour = s_.tours[bestTruck];
-                        Solver::insertToTour(tour, {D[i], D[i]+instance.nOrder}, best.second);
-                        // tour.insert(tour.begin() + best.second.first, D[i]);
-                        // tour.insert(tour.begin() + best.second.second,
-                        //             D[i] + instance.nOrder);
+                        Solver::insertToTour(
+                            tour, {D[i], D[i] + instance.nOrder}, best.second);
                     } else
                         newUnused.push_back({D[i], D[i] + instance.nOrder});
                 }
@@ -262,11 +266,11 @@ class LNS {
                 // try to insert more
                 shuffle(unUsed.begin(), unUsed.end(), std::mt19937(42));
                 int nTry = maxTry;
-                for (pair<int, int> pd_pair :
-                     unUsed) {  // ton chi phi tinh toan
+                // ton chi phi tinh toan
+                for (pair<int, int> pd_pair : unUsed) {
                     nTry--;
-                    if (nTry < 0 &&
-                        iTer != maxIter) {  // giam chi phi tinh toan
+                    // giam chi phi tinh toan
+                    if (nTry < 0 && iTer != maxIter) {
                         newUnused.push_back(pd_pair);
                         continue;
                     }
@@ -290,10 +294,6 @@ class LNS {
                     if (best.first != __INT_MAX__) {
                         vector<int>& tour = s_.tours[bestTruck];
                         Solver::insertToTour(tour, pd_pair, best.second);
-                        // tour.insert(tour.begin() + best.second.first,
-                        //             pd_pair.first);
-                        // tour.insert(tour.begin() + best.second.second,
-                        //             pd_pair.second);
                     } else
                         newUnused.push_back(pd_pair);
                 }
@@ -304,6 +304,7 @@ class LNS {
                     score[type] += o1;
                     sol = s_;  // accept
                 } else {
+                    // simulated annealing criate
                     int accept =
                         (s_.objective(instance) - sol.objective(instance)) /
                         scaler;
@@ -320,6 +321,130 @@ class LNS {
                     }
                 }
                 T = T * c_;
+            }
+            for (int i = 0; i < 3; i++)
+                w[i] = w[i] * (1 - r) + r * score[i] / numberAttemp[i];
+        }
+        return sbest;
+    }
+
+    /*
+    @brief run LNS with LAHC for a soluion sol
+    */
+    static Solution run_LAHC(Solution sol,
+                             Instance& instance,
+                             int maxSeg = 30,
+                             int maxIter = 30,
+                             int o1 = 33,
+                             int o2 = 9,
+                             int o3 = 13,
+                             double r = 0.1,
+                             double p = 6,
+                             double pWorst = 3,
+                             int q = 10,
+                             int LHC_LEN = 100,
+                             int maxTry = 10,
+                             int scaler = 1000000) {
+        Solution sbest = sol;
+        int bestObj = sbest.objective(instance);
+        vector<int> C(LHC_LEN, bestObj);
+        vector<double> w = {1, 1, 1};
+        int x = 0;
+        int curObj = bestObj;
+        for (int iSeg = 1; iSeg <= maxSeg; iSeg++) {
+            vector<int> score(3, 0);
+            vector<int> numberAttemp(3, 0);
+            for (int iTer = 1; iTer <= maxIter; iTer++) {
+                Solution s_ = sol;
+                vector<pair<int, int>>& unUsed = s_.temporatorPdPairs;
+                // remove q request
+                int type = Helper::selectWithWeight(w);
+                numberAttemp[type]++;
+                vector<int> D;
+                if (type == 0)
+                    D = SHAW_REMOVAL(s_, q, p, instance);
+                else if (type == 1)
+                    D = WORST_REMOVAL(s_, q, pWorst, instance);
+                else if (type == 2)
+                    D = RANDOM_REMOVAL(s_, q, p, instance);
+                else {
+                    cout << "sai o dau do\n";
+                    exit(1);
+                }
+                // reinsert at most q request
+                shuffle(D.begin(), D.end(), std::mt19937(42));
+                vector<pair<int, int>> newUnused;
+                for (int i = D.size() - 1; i >= 0; i--) {
+                    pair<int, pair<int, int>> best = {__INT_MAX__, {0, 0}};
+                    int bestTruck = 0;
+                    for (int truckId = 1; truckId <= instance.nTruck;
+                         truckId++) {
+                        pair<int, pair<int, int>> tmp = Solver::SlowInsert(
+                            s_, truckId, {D[i], D[i] + instance.nOrder},
+                            instance);
+                        if (tmp < best) {
+                            best = tmp;
+                            bestTruck = truckId;
+                        }
+                    }
+                    if (best.first != __INT_MAX__) {
+                        vector<int>& tour = s_.tours[bestTruck];
+                        Solver::insertToTour(
+                            tour, {D[i], D[i] + instance.nOrder}, best.second);
+                    } else
+                        newUnused.push_back({D[i], D[i] + instance.nOrder});
+                }
+
+                // try to insert more
+                shuffle(unUsed.begin(), unUsed.end(), std::mt19937(42));
+                int nTry = maxTry;
+                // ton chi phi tinh toan
+                for (pair<int, int> pd_pair : unUsed) {
+                    nTry--;
+                    // giam chi phi tinh toan
+                    if (nTry < 0 && iTer != maxIter) {
+                        newUnused.push_back(pd_pair);
+                        continue;
+                    }
+                    int flag = 0;
+                    for (int& x : D)
+                        if (x == pd_pair.first)
+                            flag = 1;
+                    if (flag)
+                        continue;
+                    pair<int, pair<int, int>> best = {__INT_MAX__, {0, 0}};
+                    int bestTruck = 0;
+                    for (int truckId = 1; truckId <= instance.nTruck;
+                         truckId++) {
+                        pair<int, pair<int, int>> tmp =
+                            Solver::SlowInsert(s_, truckId, pd_pair, instance);
+                        if (tmp < best) {
+                            best = tmp;
+                            bestTruck = truckId;
+                        }
+                    }
+                    if (best.first != __INT_MAX__) {
+                        vector<int>& tour = s_.tours[bestTruck];
+                        Solver::insertToTour(tour, pd_pair, best.second);
+                    } else
+                        newUnused.push_back(pd_pair);
+                }
+                unUsed = newUnused;
+                int newObj = s_.objective(instance);
+                if (newObj > bestObj) {
+                    score[type] += o1;
+                    curObj = bestObj = newObj;
+                    sol = sbest = s_;
+
+                } else if (newObj >= C[x] || newObj >= curObj) {
+                    sol = s_;
+                    curObj = newObj;
+                    if (newObj >= curObj)
+                        score[type] += o2;
+                    else
+                        score[type] += o3;
+                }
+                x = (x + 1) % LHC_LEN;
             }
             for (int i = 0; i < 3; i++)
                 w[i] = w[i] * (1 - r) + r * score[i] / numberAttemp[i];

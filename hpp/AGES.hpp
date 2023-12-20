@@ -197,28 +197,7 @@ class AGES {
                     }
                 }
                 // sigma = PERTURB(sigma)
-                pair<vector<int>, vector<int>> infomation =
-                    AGES::AGES_INSERTED_PD(instance, sol);
-                vector<int>& insertedList = infomation.first;
-                vector<int>& insertedPos = infomation.second;
-                for (int i = 1; i <= perturbIter; i++) {
-                    double Rand = Helper::random();
-                    int r_id1 = Helper::random_int(0, insertedList.size() - 1);
-                    int r_id2 = Helper::random_int(0, r_id1);
-                    if (Rand < pEx) {
-                        int id1 = insertedList[r_id1];
-                        int id2 = insertedList[r_id2];
-                        if (id1 == id2)
-                            continue;
-                        bool flag = Perturb::pd_swap(sol, instance, id1, id2,
-                                                     insertedPos, true);
-                        if (flag)
-                            swap(insertedPos[id1], insertedPos[id2]);
-                        if (sol.isValid(instance) == false) {
-                            int z = 1;
-                        }
-                    }
-                }
+                Perturb::do_perturb(sol, instance, perturbIter, truckRemoved);
             }
             if (EP.size() < bestEPSize) {
                 bestSol = sol;

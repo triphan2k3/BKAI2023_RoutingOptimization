@@ -18,9 +18,10 @@ def build(file):
     os.system('g++ -O2 -std=c++11 {}.cpp -o {}'.format(file,file))
 
 
-NTESTCASE=15
+NTESTCASE = 15
+MAX_WORKER = 5
 def run_all(file):
-    with ThreadPoolExecutor(max_workers=6) as executor:
+    with ThreadPoolExecutor(max_workers=MAX_WORKER) as executor:
         for i in range(1, NTESTCASE + 1):
             fileName = str(i) + '.txt'
             if i < 10:
