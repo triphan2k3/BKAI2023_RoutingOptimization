@@ -46,7 +46,8 @@ class Perturb {
         vivi infomation = get_inserted_pairs(instance, sol);
         vector<int> pd_pairs = infomation.first;
         vector<int> id_truck = infomation.second;
-        static double prob[4] = {0.25, 0.5, 0.75, 1};
+        static double prob[2] = {1, 1};
+
         for (int i = 1; i <= numTry; i++) {
             double p = Helper::random();
             if (p < prob[0]) {
@@ -56,7 +57,6 @@ class Perturb {
                 int d = p + instance.nOrder;
                 int truck1 = id_truck[p];
                 // select random truck to move above pair
-                // TODO: because truckRemoved is empty, so swap move don't need to check
                 int truck2 = Helper::random_int(1, instance.nTruck);
                 while (truck1 == truck2 || truck2 == truckRemoved)
                     truck2 = Helper::random_int(1, instance.nTruck);
@@ -72,23 +72,22 @@ class Perturb {
                 // change information
                 id_truck[p] = truck2;
             } else if (p < prob[1]) {
-                // swap move
+                // swap pair
+
                 int truck1 = Helper::random_int(1, instance.nTruck);
+
                 while (sol.tours[truck1].size() == 0) {
                     truck1 = Helper::random_int(1, instance.nTruck);
                 }
 
                 int truck2 = Helper::random_int(1, instance.nTruck);
-
                 while (sol.tours[truck2].size() == 0 || truck1 == truck2) {
                     truck2 = Helper::random_int(1, instance.nTruck);
                 }
 
                 vector<int>& tour1 = sol.tours[truck1];
                 vector<int>& tour2 = sol.tours[truck2];
-                if (tour1.size() > 30 || tour2.size() > 30) {
-                    int z = 1;
-                }
+                
                 int p1 = tour1[Helper::random_int(0, tour1.size() - 1)];
                 int p2 = tour2[Helper::random_int(0, tour2.size() - 1)];
 
@@ -100,9 +99,7 @@ class Perturb {
 
                 Solver::removeFromTour(tour1, {p1, d1});
                 Solver::removeFromTour(tour2, {p2, d2});
-                if (tour1.size() > 30 || tour2.size() > 30) {
-                    int z = 1;
-                }
+                
                 pair<int, pair<int, int>> tmp1 =
                     Solver::SlowInsert(sol, truck1, {p2, d2}, instance, true);
                 pair<int, pair<int, int>> tmp2 =
@@ -116,9 +113,6 @@ class Perturb {
                 Solver::insertToTour(tour2, {p1, d1}, tmp2.second);
                 id_truck[p1] = truck2;
                 id_truck[p2] = truck1;
-                if (sol.isValidTruck(truck1, instance, tour1) == false || sol.isValidTruck(truck2, instance, tour2) == false) {
-                    cout << "WHY";
-                }
             }
         }
     }

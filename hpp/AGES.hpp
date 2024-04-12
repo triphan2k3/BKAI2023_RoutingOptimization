@@ -104,9 +104,10 @@ class AGES {
                         Instance& instance,
                         int perturbIter = 1000,
                         double pEx = 0.5,
-                        int maxK = 2) {
+                        int maxEject = 1) {
         // create variable
         pair<int, pair<int, int>> tmp, saveCost;
+        Solution prevSol = sol;
 
         // select and remove a route randomly from sol
         int truckRemoved = ceil(Helper::random() * instance.nTruck);
@@ -147,9 +148,6 @@ class AGES {
                 EP.pop_back();
                 Solver::insertToTour(sol.tours[selectedTruck], pd_pair,
                                      tmp.second);
-                if (sol.isValid(instance) == false) {
-                    int z = 1;
-                }
             } else {
                 // if h_in cannot be inserted in sigma
                 // set p[h_in] = p[h_in] + 1
@@ -159,7 +157,7 @@ class AGES {
                 saveCost = {__INT_MAX__, {0, 0}};
                 int bestTruck, bestK;
 
-                for (int k = 1; k <= maxK; k++) {
+                for (int k = 1; k <= maxEject; k++) {
                     for (int truckId = 1; truckId <= instance.nTruck; truckId++)
                         if (truckId != truckRemoved) {
                             tmp = AGES::AGES_EJECT(sol, instance, k, truckId, p,
@@ -192,9 +190,6 @@ class AGES {
                     }
                     tmp = Solver::SlowInsert(sol, bestTruck, pd_pair, instance);
                     Solver::insertToTour(tour, pd_pair, tmp.second);
-                    if (sol.isValid(instance) == false) {
-                        int z = 1;
-                    }
                 }
                 // sigma = PERTURB(sigma)
                 Perturb::do_perturb(sol, instance, perturbIter, truckRemoved);
@@ -205,7 +200,11 @@ class AGES {
             }
             ++iter;
         }
+
         Solver::ConstructTruck(instance, bestSol, truckRemoved);
+        if (bestSol.objective(instance) < prevSol.objective(instance))
+            return prevSol;
+
         return bestSol;
     }
 };

@@ -13,14 +13,22 @@ class Solver {
     */
     static void removeFromTour(vector<int>& tour, pair<int, int> pd_pair) {
         int prev = 0;
+        vector<int> newTour;
         for (int i = 0; i < tour.size(); i++) {
-            if (tour[i] != pd_pair.first && tour[i] != pd_pair.second) {
-                tour[prev] = tour[i];
-                ++prev;
-            }
+            if (tour[i] == pd_pair.first || tour[i] == pd_pair.second)
+                continue;
+            newTour.push_back(tour[i]);
         }
-        tour.pop_back();
-        tour.pop_back();
+        tour = newTour;
+        return;
+        // for (int i = 0; i < tour.size(); i++) {
+        //     if (tour[i] != pd_pair.first && tour[i] != pd_pair.second) {
+        //         tour[prev] = tour[i];
+        //         ++prev;
+        //     }
+        // }
+        // tour.pop_back();
+        // tour.pop_back();
         // for (int i = tour.size() - 1; i >= 0; i--)
         //     if (tour[i] == pd_pair.first || tour[i] == pd_pair.second)
         //         tour.erase(tour.begin() + i);
@@ -31,7 +39,7 @@ class Solver {
     */
     static void eliminateFromTemporatorPD(Solution& sol, int p, int d) {
         pair<int, int> pd_pair = {p, d};
-        vector<pair<int, int>> &pd_pairs = sol.temporatorPdPairs;
+        vector<pair<int, int>>& pd_pairs = sol.temporatorPdPairs;
         for (auto it = pd_pairs.begin(); it != pd_pairs.end(); it++) {
             if (*it == pd_pair) {
                 sol.temporatorPdPairs.erase(it);
@@ -40,12 +48,13 @@ class Solver {
         }
         return;
     }
-    
+
     /*
     @brief remove pd_pair from solution sol
     */
-    static void eliminateFromTemporatorPD(Solution& sol, pair<int, int> pd_pair) {
-        vector<pair<int, int>> &pd_pairs = sol.temporatorPdPairs;
+    static void eliminateFromTemporatorPD(Solution& sol,
+                                          pair<int, int> pd_pair) {
+        vector<pair<int, int>>& pd_pairs = sol.temporatorPdPairs;
         for (auto it = pd_pairs.begin(); it != pd_pairs.end(); it++) {
             if (*it == pd_pair) {
                 sol.temporatorPdPairs.erase(it);
@@ -63,6 +72,8 @@ class Solver {
     static void insertToTour(vector<int>& tour,
                              pair<int, int> pd_pair,
                              pair<int, int> pos_pair) {
+
+                                
         tour.push_back(pd_pair.first);
         for (int i = tour.size() - 1; i > pos_pair.first; i--)
             swap(tour[i], tour[i - 1]);
@@ -153,6 +164,7 @@ class Solver {
                     bestJ = j;
                 }
             }
+
         }
         if (returnBest || candidates.size() == 0)
             return {bestPen, {bestI, bestJ}};
@@ -204,8 +216,7 @@ class Solver {
     @brief construct a solution with truck order is orderId
     @return Solution
     */
-    static Solution ConstructSolution(Instance& instance,
-                                      vector<int> orderId) {
+    static Solution ConstructSolution(Instance& instance, vector<int> orderId) {
         Solution sol(instance);
         for (int truckId = 1; truckId <= instance.nTruck; truckId++) {
             ConstructTruck(instance, sol, orderId[truckId - 1]);

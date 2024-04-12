@@ -77,27 +77,46 @@ class Solution {
         double maxVolume = instance.truckList[truckId].maxVolume;
 
         vector<int> visited(instance.nOrder * 2 + 1, 0);
-
+        int sumCategory = 0;
         for (int u : tour) {
+            // ensure node is not visited twice
             if (visited[u])
                 return false;
+
+            // ensure number pickup node equal to number delivery node
+            // combine with some other condition to ensure
+            // if pickup node in tour then delivery node also in tour
+            if (u > instance.nOrder)
+                sumCategory++;
+            else
+                sumCategory--;
+
+            // ensure delivery node is visited after pickup node
             if (u > instance.nOrder && visited[u - instance.nOrder] == 0)
                 return false;
+
             visited[u] = 1;
 
             Hub& hub = instance.hubList[u];
             curTime = curTime + instance.moveTime(preHub, hub, truckId);
+
+            // ensure arrive time is in time window
             if (curTime > hub.timeWindow.second)
                 return false;
             curTime = max(curTime, hub.timeWindow.first) + hub.serveTime;
             maxWeigh -= hub.weight;
             maxVolume -= hub.volume;
+
+            // ensure truck capacity is not violated
             if (maxWeigh < 0 || maxVolume < 0)
                 return false;
             preHub = hub;
         }
+
         curTime += instance.moveTime(preHub, startHub, truckId);
-        if (curTime > startHub.timeWindow.second)
+
+        // ensure truck return to start hub in time window
+        if (curTime > startHub.timeWindow.second || sumCategory != 0)
             return false;
         return true;
     }
@@ -107,104 +126,28 @@ class Solution {
     @return true if solution valid, otherwise, false
     */
     bool isValid(Instance& instance) {
+        vector<int> truckLocation(instance.nOrder * 2 + 1, 0);
+        for (int truckId = 1; truckId <= instance.nTruck; truckId++) {
+            for (int u : tours[truckId]) {
+                // ensure node is not visited twice
+                if (truckLocation[u])
+                    return false;
+                truckLocation[u] = truckId;
+            }
+        }
+
+        // ensure pickup node and delivery node in the same route
+        // which also check by isValidTruck
+        for (int i = 1; i <= instance.nOrder; i++)
+            if (truckLocation[i] != truckLocation[i + instance.nOrder])
+                return false;
+
+        // ensure all truck is valid
         for (int truckId = 1; truckId <= instance.nTruck; truckId++) {
             if (isValidTruck(truckId, instance, tours[truckId]) == false)
                 return false;
         }
         return true;
-    }
-
-    /*
-    @brief calculate number of hub the truck visit in real tour (not in decoded
-    graph). Just used in SOICT
-    @return an integer denote number of hub the truck visit in real tour.
-    */
-    int numHub(int truckId, Instance instance) {
-        vector<int> hubs;
-        hubs.push_back(instance.hubList[start[truckId]].hubID);
-        for (int u : tours[truckId])
-            hubs.push_back(instance.hubList[u].hubID);
-        hubs.push_back(instance.hubList[start[truckId]].hubID);
-        int ret = 1;
-        for (int i = 1; i < hubs.size(); i++)
-            if (hubs[i] != hubs[i - 1])
-                ++ret;
-        return ret;
-    }
-
-    /*
-    @brief print answer as SOICT required
-    */
-    void printAnswerSOICT(Instance& instance) {
-        for (int truckId = 1; truckId <= instance.nTruck; truckId++) {
-            Hub& startHub = instance.hubList[start[truckId]];
-            Hub preHub = startHub;
-
-            cout << numHub(truckId, instance) << "\n";
-
-            int curTime = preHub.timeWindow.first;
-            // first:arriveTime, second:id of hubList
-            vector<pair<int, int>> arriveTime;
-            arriveTime.push_back({curTime, startHub.id});
-            int nItem = 0;
-            tours[truckId].push_back(start[truckId]);
-            for (int u : tours[truckId]) {
-                Hub& hub = instance.hubList[u];
-                if (hub.hubID != preHub.hubID) {
-                    cout << instance.hubList[arriveTime[0].second].hubID << " "
-                         << nItem << " "
-                         << Helper::IntToTime(arriveTime[0].first) << " "
-                         << Helper::IntToTime(curTime) << "\n";
-                    for (int i = 0; i < arriveTime.size(); i++)
-                        if (instance.hubList[arriveTime[i].second].type !=
-                            instance.TRUCK) {
-                            Hub& hub = instance.hubList[arriveTime[i].second];
-                            if (hub.type == instance.PICK)
-                                cout << hub.id << " "
-                                     << Helper::IntToTime(arriveTime[i].first)
-                                     << "\n";
-                            else
-                                cout << hub.id - instance.nOrder << " "
-                                     << Helper::IntToTime(arriveTime[i].first)
-                                     << "\n";
-                        }
-                    arriveTime.clear();
-                    nItem = 0;
-                }
-                if (hub.type != instance.TRUCK)
-                    ++nItem;
-                curTime = curTime + instance.moveTime(preHub, hub, truckId);
-                curTime = max(curTime, hub.timeWindow.first);
-                arriveTime.push_back({curTime, hub.id});
-                curTime += hub.serveTime;
-                preHub = hub;
-            }
-            if (arriveTime.size() == 1) {
-                cout << instance.hubList[arriveTime[0].second].hubID << " "
-                     << nItem << " " << Helper::IntToTime(arriveTime[0].first)
-                     << " " << Helper::IntToTime(curTime) << "\n";
-            } else {
-                arriveTime.pop_back();
-                cout << instance.hubList[arriveTime[0].second].hubID << " "
-                     << nItem << " " << Helper::IntToTime(arriveTime[0].first)
-                     << " " << Helper::IntToTime(curTime) << "\n";
-                for (int i = 0; i < arriveTime.size(); i++)
-                    if (instance.hubList[arriveTime[i].second].type !=
-                        instance.TRUCK) {
-                        Hub& hub = instance.hubList[arriveTime[i].second];
-                        if (hub.type == instance.PICK)
-                            cout << hub.id << " "
-                                 << Helper::IntToTime(arriveTime[i].first)
-                                 << "\n";
-                        else
-                            cout << hub.id - instance.nOrder << " "
-                                 << Helper::IntToTime(arriveTime[i].first)
-                                 << "\n";
-                    }
-                arriveTime.clear();
-            }
-            tours[truckId].pop_back();
-        }
     }
 
     /*
@@ -228,9 +171,11 @@ class Solution {
         return visitTime;
     }
 
-    void printHeader(Instance& instance) {
+    void printHeader(Instance& instance, string inputName, string solverName) {
         int processed = instance.nOrder - temporatorPdPairs.size();
         cout << "---------------------------------------------------------\n";
+        cout << "INPUT:\t" << inputName << "\n";
+        cout << "SOLVER:\t" << solverName << "\n";
         cout << "OBJECTIVE:\t" << (int)objective(instance) << "\n";
         cout << "SELF VALIDATE:\t" << (bool)isValid(instance) << "\n";
         cout << "TOTAL REQUEST PROCESS:\t" << processed << "/"
@@ -265,8 +210,8 @@ class Solution {
     /*
     @brief print answer to stdout
     */
-    void printAnswer(Instance& instance) {
-        printHeader(instance);
+    void printAnswer(Instance& instance, string inputName, string solverName) {
+        printHeader(instance, inputName, solverName);
         vector<int> AT = CalculateArriveTime(instance);
         for (int truckId = 1; truckId <= instance.nTruck; truckId++) {
             Hub& startHub = instance.hubList[start[truckId]];

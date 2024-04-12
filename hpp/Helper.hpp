@@ -15,6 +15,18 @@ using namespace std::chrono;
 
 class Helper {
    public:
+    static std::chrono::steady_clock::time_point start;
+    static std::mt19937 gen;
+
+    static void initRandomAndRunTime() {
+        start = steady_clock::now();
+        gen = std::mt19937(std::random_device{}());
+    }
+
+    static int getRunTime() {
+        return duration_cast<seconds>(steady_clock::now() - start).count();
+    }
+
     static const std::string currentDateTime() {
         time_t now = time(0);
         struct tm tstruct;
@@ -71,15 +83,12 @@ class Helper {
         return make_pair(TimeToInt(e), TimeToInt(l));
     }
     static double random(double from = 0, double to = 1) {
-        // thread_local static std::mt19937 gen(1);
-        thread_local static std::mt19937 gen(std::random_device{}());
-
         using dist_type = typename std::conditional<
             std::is_integral<double>::value,
             std::uniform_int_distribution<double>,
             std::uniform_real_distribution<double>>::type;
 
-        thread_local static dist_type dist;
+        dist_type dist;
 
         return dist(gen, typename dist_type::param_type{from, to});
     }
@@ -90,7 +99,8 @@ class Helper {
     template <typename T>
     static int selectWithWeight(vector<T> w) {
         T sum = 0;
-        accumulate(w.begin(), w.end(), sum);
+        for (T& x : w)
+            sum += x;
         T Rand = Helper::random() * sum;
         T csum = 0;
         for (int i = 0; i < w.size(); i++) {
